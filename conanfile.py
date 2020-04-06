@@ -3,6 +3,9 @@ import os
 import shutil
 import glob
 
+from cross_file import write_cross_file
+from fake_compiler import with_fake_compiler
+
 
 class GLibConan(ConanFile):
     name = "glib"
@@ -30,6 +33,7 @@ class GLibConan(ConanFile):
     short_paths = True
     generators = "pkg_config"
     requires = "zlib/1.2.11", "libffi/3.2.1"
+    exports = "cross_file.py", "fake_compiler.py"
 
     @property
     def _is_msvc(self):
@@ -88,8 +92,20 @@ class GLibConan(ConanFile):
             defs["libmount"] = "enabled" if self.options.with_mount else "disabled"
         defs["internal_pcre"] = not self.options.with_pcre
 
-        meson.configure(source_folder=self._source_subfolder,
-                        build_folder=self._build_subfolder, defs=defs)
+        args = list()
+        if tools.cross_building(self.settings):
+            cross_file_name = "cross_file.txt"
+            write_cross_file(cross_file_name, self)
+            args += ['--cross-file', cross_file_name]
+
+        # there is no usage of native compiler but we had to trick
+        # meson's sanity check somehow
+        cross_env = (with_fake_compiler()
+                     if tools.cross_building(self.settings) else tools.no_op())
+        with cross_env:
+            meson.configure(source_folder=self._source_subfolder,
+                            build_folder=self._build_subfolder, defs=defs,
+                            args=args)
         return meson
 
     def build(self):
@@ -106,7 +122,6 @@ class GLibConan(ConanFile):
             tools.replace_in_file(os.path.join(self._source_subfolder, 'meson.build'),
                                 "if cc.has_function('ngettext')",
                                 "if false #cc.has_function('ngettext')")
-                              
         with tools.environment_append(VisualStudioBuildEnvironment(self).vars) if self._is_msvc else tools.no_op():
             meson = self._configure_meson()
             meson.build()
