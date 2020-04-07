@@ -96,6 +96,8 @@ jobs:
         env:
           CONAN_LOGIN_USERNAME: ${{ secrets.CONAN_LOGIN_USERNAME }}
           CONAN_PASSWORD: ${{ secrets.CONAN_PASSWORD }}
+          CONAN_UPLOAD: ${{ secrets.CONAN_UPLOAD }}
+          CONAN_USERNAME: ${{ secrets.CONAN_USERNAME }}
         run: |
           bincrafters-package-tools --auto
         if: env.recipeType == matrix.config.recipeType
